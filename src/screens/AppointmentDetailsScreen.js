@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Modal } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { getAppointmentById, deleteAppointment } from "../database/db"; // Importar funciones de la base de datos
 import AppointmentUpdateModal from "../components/AppointmentUpdateModal"; // Importar el modal de actualización
+import { cancelAppointmentNotification } from "../notifications/index"; // Importar la función para cancelar la notificación
 
 const AppointmentDetailsScreen = ({ route, navigation }) => {
   const { appointmentId } = route.params || {};
   const [appointment, setAppointment] = useState(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [customAlertVisible, setCustomAlertVisible] = useState(false); // Estado para la alerta personalizada
+  const [alertMessage, setAlertMessage] = useState(""); // Mensaje de la alerta
+  const [alertType, setAlertType] = useState("info"); // Tipo de alerta (info, error, success)
 
   // Cargar los datos de la cita
   const loadAppointment = async () => {
@@ -16,11 +20,11 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
       if (data) {
         setAppointment(data);
       } else {
-        Alert.alert("Error", "No se encontró la cita seleccionada");
+        showCustomAlert("No se encontró la cita seleccionada", "error");
         navigation.goBack();
       }
     } catch (error) {
-      Alert.alert("Error", "No se pudo cargar la cita");
+      showCustomAlert("No se pudo cargar la cita", "error");
       console.error(error);
     }
   };
@@ -30,27 +34,40 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
     loadAppointment();
   }, [appointmentId]);
 
+  // Formatear la hora en formato de 12 horas (AM/PM)
+  const formatTimeForDisplay = (time) => {
+    if (!time) return "";
+    const [hours, minutes] = time.split(":");
+    const date = new Date(`1970-01-01T${hours}:${minutes}:00`);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+  };
+
+  // Mostrar alerta personalizada
+  const showCustomAlert = (message, type = "info") => {
+    setAlertMessage(message);
+    setAlertType(type);
+    setCustomAlertVisible(true);
+  };
+
+  // Cerrar alerta personalizada
+  const closeCustomAlert = () => {
+    setCustomAlertVisible(false);
+  };
+
   // Eliminar la cita
   const handleDelete = async () => {
-    try {
-      Alert.alert("Confirmar", "¿Estás seguro de eliminar la cita?", [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Eliminar", onPress: deleteAppointmentHandler },
-      ]);
-    } catch (error) {
-      Alert.alert("Error", "No se pudo eliminar la cita");
-      console.error(error);
-    }
+    showCustomAlert("¿Estás seguro de eliminar la cita?", "confirm");
   };
 
   // Función para eliminar la cita
   const deleteAppointmentHandler = async () => {
     try {
       await deleteAppointment(appointmentId);
-      Alert.alert("Éxito", "La cita ha sido eliminada");
+      showCustomAlert("La cita ha sido eliminada", "success");
+      await cancelAppointmentNotification(appointmentId); // Cancelar la notificación de la cita
       navigation.goBack();
     } catch (error) {
-      Alert.alert("Error", "No se pudo eliminar la cita");
+      showCustomAlert("No se pudo eliminar la cita", "error");
       console.error(error);
     }
   };
@@ -63,7 +80,7 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
   // Abrir WhatsApp con el número de teléfono
   const openWhatsApp = () => {
     if (!appointment || !appointment.clientPhone) {
-      Alert.alert("Error", "No hay un número de teléfono válido");
+      showCustomAlert("No hay un número de teléfono válido", "error");
       return;
     }
 
@@ -75,7 +92,7 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
 
     // Abrir el enlace
     Linking.openURL(url).catch(() => {
-      Alert.alert("Error", "No se pudo abrir WhatsApp");
+      showCustomAlert("No se pudo abrir WhatsApp", "error");
     });
   };
 
@@ -90,55 +107,83 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.card}>
-        <Text style={styles.title}>Detalles de la Cita</Text>
-
-        <View style={styles.infoContainer}>
-          <Icon name="user" size={20} color="#4CAF50" style={styles.icon} />
-          <Text style={styles.label}>Nombre del Cliente:</Text>
-          <Text style={styles.infoText}>{appointment.clientName}</Text>
+        {/* Información de la cita */}
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Información de la Cita</Text>
+          <View style={styles.infoRow}>
+            <Icon name="calendar" size={30} color="#FF69B4" style={styles.icon} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Fecha:</Text>
+              <Text style={styles.infoText}>{appointment.date}</Text>
+            </View>
+          </View>
+          <Text style={styles.sectionTitle}>Información del Cliente</Text>
+          <View style={styles.infoRow}>
+            <Icon name="user" size={30} color="#FF69B4" style={styles.icon} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Nombre:</Text>
+              <Text style={styles.infoText}>{appointment.clientName}</Text>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon name="phone" size={30} color="#FF69B4" style={styles.icon} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Teléfono:</Text>
+              <Text style={styles.infoText}>{appointment.clientPhone}</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.infoContainer}>
-          <Icon name="phone" size={20} color="#4CAF50" style={styles.icon} />
-          <Text style={styles.label}>Teléfono:</Text>
-          <Text style={styles.infoText}>{appointment.clientPhone}</Text>
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Detalles de la Cita</Text>
+          <View style={styles.infoRow}>
+            <Icon name="paint-brush" size={30} color="#FF69B4" style={styles.icon} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Servicio:</Text>
+              <Text style={styles.infoText}>{appointment.service}</Text>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon name="clock-o" size={30} color="#FF69B4" style={styles.icon} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Hora de Inicio:</Text>
+              <Text style={styles.infoText}>{formatTimeForDisplay(appointment.startTime)}</Text>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon name="clock-o" size={30} color="#FF69B4" style={styles.icon} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Hora de Fin:</Text>
+              <Text style={styles.infoText}>{formatTimeForDisplay(appointment.endTime)}</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.infoContainer}>
-          <Icon name="calendar" size={20} color="#4CAF50" style={styles.icon} />
-          <Text style={styles.label}>Servicio:</Text>
-          <Text style={styles.infoText}>{appointment.service}</Text>
-        </View>
+        {/* Botones de acciones */}
+        <View style={styles.actionsContainer}>
+          {/* Botón de WhatsApp */}
+          <TouchableOpacity style={styles.actionButton} onPress={openWhatsApp}>
+            <Icon name="whatsapp" size={50} color="#25D366" />
+          </TouchableOpacity>
 
-        <View style={styles.infoContainer}>
-          <Icon name="clock-o" size={20} color="#4CAF50" style={styles.icon} />
-          <Text style={styles.label}>Hora de Inicio:</Text>
-          <Text style={styles.infoText}>{appointment.startTime}</Text>
-        </View>
-
-        <View style={styles.infoContainer}>
-          <Icon name="clock-o" size={20} color="#4CAF50" style={styles.icon} />
-          <Text style={styles.label}>Hora de Fin:</Text>
-          <Text style={styles.infoText}>{appointment.endTime}</Text>
-        </View>
-
-        {/* Botón de WhatsApp */}
-        <TouchableOpacity style={styles.whatsappButton} onPress={openWhatsApp}>
-          <Icon name="whatsapp" size={30} color="#25D366" />
-        </TouchableOpacity>
-
-        <View style={styles.buttonContainer}>
+          {/* Botón de Actualizar (Lápiz) */}
           <TouchableOpacity
-            style={[styles.button, styles.updateButton]}
-            onPress={() => setIsEditModalVisible(true)} // Abrir el modal
+            style={styles.actionButton}
+            onPress={() => setIsEditModalVisible(true)}
           >
-            <Text style={styles.buttonText}>Actualizar Cita</Text>
+            <Icon name="pencil" size={50} color="#FF69B4" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={handleDelete}>
-            <Text style={styles.buttonText}>Eliminar Cita</Text>
+          {/* Botón de Eliminar (Basura) */}
+          <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+            <Icon name="trash" size={50} color="#FF1493" />
           </TouchableOpacity>
         </View>
+
+        {/* Botón de Volver */}
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>Volver</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Modal de actualización */}
@@ -148,6 +193,38 @@ const AppointmentDetailsScreen = ({ route, navigation }) => {
         appointment={appointment}
         onSave={handleSave} // Recargar los datos después de guardar
       />
+
+      {/* Alerta personalizada */}
+      <Modal visible={customAlertVisible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <View style={[
+            styles.alertContainer,
+            alertType === "error" && styles.alertError,
+            alertType === "success" && styles.alertSuccess,
+            alertType === "confirm" && styles.alertConfirm,
+          ]}>
+            <Text style={styles.alertText}>{alertMessage}</Text>
+            <View style={styles.alertButtonContainer}>
+              {alertType === "confirm" && (
+                <TouchableOpacity style={[styles.alertButton, styles.alertButtonCancel]} onPress={closeCustomAlert}>
+                  <Text style={styles.alertButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertButtonConfirm]}
+                onPress={() => {
+                  if (alertType === "confirm") {
+                    deleteAppointmentHandler();
+                  }
+                  closeCustomAlert();
+                }}
+              >
+                <Text style={styles.alertButtonText}>{alertType === "confirm" ? "Eliminar" : "Aceptar"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -158,9 +235,6 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#f5f5f5",
   },
-  scrollContainer: {
-    flexGrow: 1,
-  },
   card: {
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -170,67 +244,108 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
+    marginVertical: 20,
   },
-  title: {
-    fontSize: 24,
+  sectionTitle: {
+    fontSize: 25,
     fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-    color: "#333",
+    color: "#FF69B4",
+    marginTop: 5,
+    marginBottom: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: "#FF69B4",
+    paddingBottom: 5,
   },
-  infoContainer: {
+  infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 5,
   },
   icon: {
-    marginRight: 10,
+    marginRight: 15,
   },
-  label: {
-    fontSize: 16,
+  infoLabel: {
+    fontSize: 20,
     fontWeight: "bold",
     color: "#555",
-    marginRight: 10,
+    marginBottom: 5,
   },
   infoText: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#333",
   },
-  whatsappButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
+  actionsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginTop: 25,
+  },
+  actionButton: {
+    padding: 10,
+  },
+  backButton: {
+    marginTop: 40, // Más espacio arriba del botón
+    backgroundColor: "#FF69B4", // Rosa más intenso
     padding: 15,
     borderRadius: 8,
-    marginTop: 20,
+    alignItems: "center",
   },
-  whatsappButtonText: {
+  backButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 25,
     fontWeight: "bold",
-    marginLeft: 10,
   },
-  buttonContainer: {
+  alertOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  alertContainer: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+  },
+  alertError: {
+    borderLeftWidth: 10,
+    borderLeftColor: "#FF1493", // Rosa oscuro para errores
+  },
+  alertSuccess: {
+    borderLeftWidth: 10,
+    borderLeftColor: "#4CAF50", // Verde para éxito
+  },
+  alertConfirm: {
+    borderLeftWidth: 10,
+    borderLeftColor: "#FF69B4", // Rosa más intenso para confirmación
+  },
+  alertText: {
+    fontSize: 25,
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  alertButtonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
+    width: "100%",
   },
-  button: {
+  alertButton: {
     flex: 1,
-    padding: 15,
+    padding: 10,
     borderRadius: 8,
     alignItems: "center",
     marginHorizontal: 5,
   },
-  updateButton: {
-    backgroundColor: "#4CAF50",
+  alertButtonCancel: {
+    backgroundColor: "#ccc",
   },
-  deleteButton: {
-    backgroundColor: "#F44336",
+  alertButtonConfirm: {
+    backgroundColor: "#FF1493",
   },
-  buttonText: {
+  alertButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "bold",
   },
 });

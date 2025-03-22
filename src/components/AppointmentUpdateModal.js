@@ -5,13 +5,6 @@ import { updateAppointment, getAppointmentsByDate, services } from "../database/
 import { Picker } from "@react-native-picker/picker";
 
 const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
-  // Validar que appointment tenga la propiedad id
-  if (!appointment || !appointment.id) {
-    Alert.alert("Error", "No se pudo cargar la cita");
-    onClose(); // Cerrar el modal si no hay un ID válido
-    return null; // Evitar que el modal se renderice
-  }
-
   const [clientName, setClientName] = useState(appointment.clientName);
   const [clientPhone, setClientPhone] = useState(appointment.clientPhone);
   const [service, setService] = useState(appointment.service);
@@ -20,6 +13,9 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [existingAppointments, setExistingAppointments] = useState([]);
+  const [customAlertVisible, setCustomAlertVisible] = useState(false); // Estado para la alerta personalizada
+  const [alertMessage, setAlertMessage] = useState(""); // Mensaje de la alerta
+  const [alertType, setAlertType] = useState("info"); // Tipo de alerta (info, error, success)
 
   // Obtener las citas existentes para la fecha seleccionada
   useEffect(() => {
@@ -45,7 +41,6 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
   // Validar solapamiento de citas y devolver la cita existente que causa el conflicto
   const isOverlapping = (newStart, newEnd) => {
     for (const existingAppointment of existingAppointments) {
-      // Ignorar la cita actual que se está editando
       if (existingAppointment.id === appointment.id) continue;
 
       const existingStart = new Date(`1970-01-01T${existingAppointment.startTime}:00`);
@@ -58,49 +53,53 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
         (newEndTime > existingStart && newEndTime <= existingEnd) ||
         (newStartTime <= existingStart && newEndTime >= existingEnd)
       ) {
-        return existingAppointment; // Devuelve la cita existente que causa el conflicto
+        return existingAppointment;
       }
     }
-    return null; // No hay conflicto
+    return null;
+  };
+
+  // Mostrar alerta personalizada
+  const showCustomAlert = (message, type = "info") => {
+    setAlertMessage(message);
+    setAlertType(type);
+    setCustomAlertVisible(true);
+  };
+
+  // Cerrar alerta personalizada
+  const closeCustomAlert = () => {
+    setCustomAlertVisible(false);
   };
 
   const handleSave = async () => {
     if (!clientName || !clientPhone || !startTime || !endTime || !service) {
-      Alert.alert("Error", "Todos los campos son obligatorios");
+      showCustomAlert("Todos los campos son obligatorios", "error");
       return;
     }
     if (clientPhone.length !== 10 || isNaN(clientPhone)) {
-      Alert.alert("Error", "El número de teléfono debe tener 10 dígitos");
+      showCustomAlert("El número de teléfono debe tener 10 dígitos", "error");
       return;
     }
 
     const formattedStartTime = formatTimeForValidation(startTime);
     const formattedEndTime = formatTimeForValidation(endTime);
 
-    if (formattedStartTime >= formattedEndTime) {
-      Alert.alert("Error", "La hora de inicio debe ser menor a la hora de fin");
-      return;
-    }
-
-    // Validar solapamiento
     const conflictingAppointment = isOverlapping(formattedStartTime, formattedEndTime);
     if (conflictingAppointment) {
-      // Convertir las horas de la cita existente a formato de 12 horas
       const conflictingStartTime = new Date(`1970-01-01T${conflictingAppointment.startTime}:00`);
       const conflictingEndTime = new Date(`1970-01-01T${conflictingAppointment.endTime}:00`);
 
-      Alert.alert(
-        "Error",
+      showCustomAlert(
         `Ya existe una cita en ese horario:\n\n` +
         `Cliente: ${conflictingAppointment.clientName}\n` +
         `Servicio: ${conflictingAppointment.service}\n` +
-        `Horario: ${formatTimeForDisplay(conflictingStartTime)} - ${formatTimeForDisplay(conflictingEndTime)}`
+        `Horario: ${formatTimeForDisplay(conflictingStartTime)} - ${formatTimeForDisplay(conflictingEndTime)}`,
+        "error"
       );
       return;
     }
 
     try {
-      // Crear el objeto con los datos actualizados
       const updatedData = {
         clientName,
         clientPhone,
@@ -109,9 +108,8 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
         endTime: formattedEndTime,
       };
 
-      // Actualizar la cita en la base de datos
       await updateAppointment(
-        appointment.id, // Asegúrate de que appointment.id esté definido
+        appointment.id,
         updatedData.clientName,
         updatedData.clientPhone,
         updatedData.service,
@@ -119,16 +117,11 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
         updatedData.endTime
       );
 
-      // Notificar que la cita se actualizó correctamente
-      Alert.alert("Éxito", "Cita actualizada correctamente");
-
-      // Cerrar el modal
+      showCustomAlert("Cita actualizada correctamente", "success");
       onClose();
-
-      // Notificar a la pantalla principal que los datos se actualizaron
       onSave();
     } catch (error) {
-      Alert.alert("Error", "No se pudo actualizar la cita");
+      showCustomAlert("No se pudo actualizar la cita", "error");
       console.error(error);
     }
   };
@@ -144,6 +137,8 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
             style={styles.input}
             value={clientName}
             onChangeText={setClientName}
+            placeholder="Nombre del cliente"
+            placeholderTextColor="#999"
           />
 
           <Text style={styles.label}>Número de Teléfono:</Text>
@@ -153,17 +148,19 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
             onChangeText={setClientPhone}
             keyboardType="numeric"
             maxLength={10}
+            placeholder="Número de teléfono"
+            placeholderTextColor="#999"
           />
 
           <Text style={styles.label}>Hora de Inicio:</Text>
           <TouchableOpacity style={styles.timeInput} onPress={() => setShowStartPicker(true)}>
-            <Text>{startTime ? formatTimeForDisplay(startTime) : "Seleccionar hora"}</Text>
+            <Text style={styles.timeText}>{startTime ? formatTimeForDisplay(startTime) : "Seleccionar hora"}</Text>
           </TouchableOpacity>
           {showStartPicker && (
             <DateTimePicker
               value={startTime || new Date()}
               mode="time"
-              is24Hour={false} // Mostrar en formato de 12 horas
+              is24Hour={false}
               display="default"
               onChange={(event, selected) => {
                 setShowStartPicker(false);
@@ -174,13 +171,13 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
 
           <Text style={styles.label}>Hora de Fin:</Text>
           <TouchableOpacity style={styles.timeInput} onPress={() => setShowEndPicker(true)}>
-            <Text>{endTime ? formatTimeForDisplay(endTime) : "Seleccionar hora"}</Text>
+            <Text style={styles.timeText}>{endTime ? formatTimeForDisplay(endTime) : "Seleccionar hora"}</Text>
           </TouchableOpacity>
           {showEndPicker && (
             <DateTimePicker
               value={endTime || new Date()}
               mode="time"
-              is24Hour={false} // Mostrar en formato de 12 horas
+              is24Hour={false}
               display="default"
               onChange={(event, selected) => {
                 setShowEndPicker(false);
@@ -196,7 +193,7 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
               onValueChange={(itemValue) => setService(itemValue)}
             >
               {services.map((service, index) => (
-                <Picker.Item key={index} label={service} value={service} />
+                <Picker.Item key={index} label={service} value={service} style={styles.timeText} />
               ))}
             </Picker>
           </View>
@@ -212,6 +209,22 @@ const AppointmentUpdateModal = ({ visible, onClose, appointment, onSave }) => {
           </View>
         </View>
       </View>
+
+      {/* Alerta personalizada */}
+      <Modal visible={customAlertVisible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <View style={[
+            styles.alertContainer,
+            alertType === "error" && styles.alertError,
+            alertType === "success" && styles.alertSuccess,
+          ]}>
+            <Text style={styles.alertText}>{alertMessage}</Text>
+            <TouchableOpacity style={styles.alertButton} onPress={closeCustomAlert}>
+              <Text style={styles.alertButtonText}>Aceptar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -225,41 +238,51 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "90%",
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF0F5",
     borderRadius: 10,
     padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 35,
     fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
-    color: "#333",
+    color: "#FF1493",
   },
   label: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 23,
+    fontWeight: "600",
     marginTop: 10,
     marginBottom: 5,
     color: "#333",
   },
   input: {
-    fontSize: 16,
+    fontSize: 20,
     borderWidth: 1,
     borderColor: "#ccc",
-    padding: 10,
+    padding: 12,
     marginBottom: 15,
     borderRadius: 8,
     backgroundColor: "#fff",
+    color: "#333",
   },
   timeInput: {
     borderWidth: 1,
     borderColor: "#ccc",
-    padding: 10,
+    padding: 12,
     marginBottom: 15,
     borderRadius: 8,
     backgroundColor: "#fff",
     alignItems: "center",
+  },
+  timeText: {
+    fontSize: 20,
+    color: "#333",
   },
   pickerContainer: {
     borderWidth: 1,
@@ -281,14 +304,53 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: "#F44336",
+    backgroundColor: "#FF69B4",
   },
   saveButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#FF1493",
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 25,
+    fontWeight: "bold",
+  },
+  alertOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  alertContainer: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+  },
+  alertError: {
+    borderLeftWidth: 10,
+    borderLeftColor: "#FF1493", // Rosa oscuro para errores
+  },
+  alertSuccess: {
+    borderLeftWidth: 10,
+    borderLeftColor: "#4CAF50", // Verde para éxito
+  },
+  alertText: {
+    fontSize: 25,
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  alertButton: {
+    backgroundColor: "#FF69B4",
+    padding: 10,
+    borderRadius: 8,
+    width: "100%",
+    alignItems: "center",
+  },
+  alertButtonText: {
+    color: "#fff",
+    fontSize: 25,
     fontWeight: "bold",
   },
 });

@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "dalau_app",
+    "name": "DalauApp",
     "slug": "dalau_app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/dalauIcon.png",
+    "icon": "./assets/dalauIconn.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/dalauIcon.png",
-      "resizeMode": "contain",
+      "image": "./assets/dalauIconn.png",
+      "resizeMode": "cover",
       "backgroundColor": "#ffffff"
     },
     "ios": {
@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/dalauIcon.png",
+        "foregroundImage": "./assets/dalauIconn.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.polyneitor.dalau_app"

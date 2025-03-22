@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Modal, FlatList, TouchableOpacity, Button, StyleSheet } from "react-native";
+import { View, Text, Modal, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 const AppointmentListModal = ({ visible, onClose, appointments }) => {
@@ -21,64 +21,108 @@ const AppointmentListModal = ({ visible, onClose, appointments }) => {
   });
 
   return (
-    <Modal visible={visible} animationType="slide">
-      <View style={styles.container}>
-        <Text style={styles.title}>Citas del Día {appointments.date}</Text>
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Text style={styles.title}>Citas del Día</Text>
 
-        {sortedAppointments.length === 0 ? (
-          <Text style={styles.noAppointments}>No hay citas para este día.</Text>
-        ) : (
-          <FlatList
-            data={sortedAppointments} // Usar la lista ordenada
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.appointmentItem}
-                onPress={() => {
-                  onClose();
-                  navigation.navigate("AppointmentDetailsScreen", { appointmentId: item.id }); // Pasamos "appointmentId"
-                }}
-              >
-                <Text style={styles.appointmentText}> {item.service} --- {item.clientName}  </Text>
-                <Text style={styles.appointmentText}>
-                  {formatTimeForDisplay(item.startTime)} - {formatTimeForDisplay(item.endTime)}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        )}
+          {sortedAppointments.length === 0 ? (
+            <Text style={styles.noAppointments}>No hay citas para este día.</Text>
+          ) : (
+            <FlatList
+              data={sortedAppointments} // Usar la lista ordenada
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.appointmentItem}
+                  onPress={() => {
+                    onClose();
+                    navigation.navigate("AppointmentDetailsScreen", { appointmentId: item.id }); // Pasamos "appointmentId"
+                  }}
+                >
+                  <Text style={styles.appointmentService}>{item.service}</Text>
+                  <Text style={styles.appointmentClient}>{item.clientName}</Text>
+                  <Text style={styles.appointmentTime}>
+                    {formatTimeForDisplay(item.startTime)} - {formatTimeForDisplay(item.endTime)}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
 
-        <Button title="Cerrar" onPress={onClose} color="red" />
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
     flex: 1,
-    padding: 20,
     justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Fondo semitransparente
+  },
+  modalContainer: {
+    width: "90%",
+    backgroundColor: "#FFF0F5", // Fondo rosa claro
+    borderRadius: 10,
+    padding: 20,
+    maxHeight: "80%", // Limitar la altura del modal
   },
   title: {
-    fontSize: 20,
+    fontSize: 30,
     fontWeight: "bold",
-    marginBottom: 20,
+    color: "#FF1493", // Rosa más intenso
     textAlign: "center",
+    marginBottom: 20,
   },
   noAppointments: {
     textAlign: "center",
-    fontSize: 16,
-    color: "gray",
+    fontSize: 25,
+    color: "#666",
+    marginTop: 20,
   },
   appointmentItem: {
+    backgroundColor: "#fff",
     padding: 15,
-    backgroundColor: "#f0f0f0",
-    marginVertical: 5,
-    borderRadius: 5,
+    borderRadius: 8,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  appointmentText: {
-    fontSize: 16,
+  appointmentService: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#FF69B4", // Rosa más intenso
+  },
+  appointmentClient: {
+    fontSize: 20,
+    color: "#333",
+    marginTop: 5,
+  },
+  appointmentTime: {
+    fontSize: 18,
+    color: "#666",
+    marginTop: 5,
+  },
+  closeButton: {
+    marginTop: 20,
+    backgroundColor: "#FF69B4", // Rosa oscuro
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  closeButtonText: {
+    fontSize: 25,
+    color: "#fff",
+    fontWeight: "bold",
   },
 });
 

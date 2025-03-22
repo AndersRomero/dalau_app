@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Button } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, StatusBar } from "react-native";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { getAppointmentsByDate, getAllAppointmentDates } from "../database/db";
 import AppointmentListModal from "../components/AppointmentListModal";
@@ -18,7 +18,7 @@ LocaleConfig.locales["es"] = {
   dayNames: [
     "Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado",
   ],
-  dayNamesShort: ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+  dayNamesShort: ["Do", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
   today: "Hoy",
 };
 LocaleConfig.defaultLocale = "es";
@@ -42,7 +42,7 @@ const HomeScreen = ({ navigation }) => {
     dates.forEach((date) => {
       marked[date] = {
         selected: true,
-        selectedColor: "lightpink",
+        selectedColor: "#FF69B4",
         marked: true,
       };
     });
@@ -65,7 +65,6 @@ const HomeScreen = ({ navigation }) => {
     }
   }, [selectedDate]);
 
-  // Recargar las fechas marcadas cuando se vuelva a esta pantalla
   useFocusEffect(
     useCallback(() => {
       loadMarkedDates();
@@ -74,35 +73,58 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor="#FF69B4" barStyle="light-content" />
       <Calendar
         onDayPress={handleDayPress}
         onDayLongPress={handleLongPress}
         markedDates={{
           ...markedDates,
           ...(selectedDate
-            ? { [selectedDate]: { selected: true, selectedColor: "blue" } }
+            ? { [selectedDate]: { selected: true, selectedColor: "#FF69B4" } }
             : {}),
         }}
         monthFormat={"MMMM yyyy"}
         theme={{
-          calendarBackground: "#ffffff",
-          selectedDayBackgroundColor: "blue",
-          selectedDayTextColor: "#ffffff",
-          todayTextColor: "blue",
-          dotColor: "red",
-          arrowColor: "blue",
+          calendarBackground: "#FFF0F5",
+          textSectionTitleColor: "#000",
+          selectedDayBackgroundColor: "#FF1493",
+          selectedDayTextColor: "#FFFFFF",
+          weekVerticalMargin: 24,
+          todayTextColor: "#FF1493",
+          arrowColor: "#FF69B4",
+          textMonthFontWeight: "bold",
+          textMonthFontSize: 50,
+          textDayHeaderFontWeight: "bold",
+          textDayFontSize: 25,
+          textDayHeaderFontSize: 17,
+          // Nuevas propiedades para aumentar el tamaño de los círculos
+          'stylesheet.day.basic': {
+            base: {
+              width: 50,
+              height: 50,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            selected: {
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              backgroundColor: '#FF1493',
+            }
+          },
         }}
+        style={{}}
       />
 
       {selectedDate && (
-        <View style={styles.buttonContainer}>
-          <Button
-            title="Agendar Cita"
-            onPress={() =>
-              navigation.navigate("AppointmentFormScreen", { selectedDate })
-            }
-          />
-        </View>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() =>
+            navigation.navigate("AppointmentFormScreen", { selectedDate })
+          }
+        >
+          <Text style={styles.buttonText}>Agendar Cita</Text>
+        </TouchableOpacity>
       )}
 
       <AppointmentListModal
@@ -118,10 +140,23 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    backgroundColor: "#FFF0F5",
   },
-  buttonContainer: {
-    marginTop: 20,
+  button: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: "#FF69B4",
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    elevation: 5,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 25,
+    fontWeight: "bold",
   },
 });
 

@@ -3,10 +3,15 @@ import { openDatabaseAsync } from "expo-sqlite";
 export const services = [
   "Tradicional",
   "Semipermanente",
-  "PressOn",
+  "Recubrimiento en polygel",
   "Polygel",
+  "PressOn",
   "Acrílico",
-  "Pies"
+  "Dipping",
+  "Rubber",
+  "Pedicure",
+  "Manicure y pedicure tradicional",
+  "Manicure semipermanente y pedicure"
 ]
 
 
@@ -18,7 +23,6 @@ export const openDB = async () => {
 // Crear la tabla de citas
 export const createTable = async () => {
   const db = await openDB();
-
   await db.runAsync(`
     CREATE TABLE IF NOT EXISTS appointments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +31,9 @@ export const createTable = async () => {
       endTime TEXT NOT NULL,
       clientName TEXT NOT NULL,
       clientPhone TEXT NOT NULL,
-      service TEXT NOT NULL
+      service TEXT NOT NULL,
+      notificationScheduled BOOLEAN DEFAULT FALSE
+
     );
   `);
   console.log("Tabla de citas creada correctamente");
@@ -103,7 +109,7 @@ export const deleteAppointment = async (id) => {
 };
 
 // Actualizar una cita por ID
-export const updateAppointment = async (id, clientName, clientPhone, service, startTime, endTime ) => {
+export const updateAppointment = async (id, clientName, clientPhone, service, startTime, endTime) => {
   const db = await openDB();
 
   // Validar que todos los campos estén presentes
@@ -135,3 +141,13 @@ export const updateAppointment = async (id, clientName, clientPhone, service, st
   }
 };
 
+export const getStartTimeById = async (id) => {
+  const db = await openDB();
+  const result = await db.getFirstAsync("SELECT startTime FROM appointments WHERE id = ?", id);
+  return result.startTime;
+};
+
+export const updateNotifications = async (id, notificationScheduled) => {
+  const db = await openDB();
+  await db.runAsync("UPDATE appointments SET notificationScheduled = ? WHERE id = ?", notificationScheduled, id);
+}
